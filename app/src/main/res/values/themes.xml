@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      FocusESP runs the midnight-navy blue-black identity in Compose at all
+      times. The framework theme is dark to match so the window background and
+      system-bar icon contrast stay consistent during launch and under
+      edge-to-edge.
+    -->
+    <style name="Theme.FocusESP" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/focus_background</item>
+    </style>
+</resources>

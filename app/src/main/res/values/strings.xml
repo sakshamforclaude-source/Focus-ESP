@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FocusESP</string>
+    <string name="accessibility_service_label">FocusESP focus assistant</string>
+    <string name="accessibility_service_description">FocusESP uses this service to detect the foreground app so it can enforce your Focus blocking rules. While a Focus session is active it also inspects on-screen labels and browser addresses in YouTube, Instagram and known browsers to send you Home when you open Shorts or Reels. Inspection is on-device only; no screen content, titles, messages or URLs are stored or transmitted.</string>
+</resources>

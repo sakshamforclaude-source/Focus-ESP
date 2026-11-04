@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches Color.kt MidnightBackground so the pre-Compose window and the
+         app draw the same surface. -->
+    <color name="focus_background">#FF090D14</color>
+</resources>
