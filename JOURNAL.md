@@ -1,3 +1,4 @@
+[Uploading JOURNAL.md.md…]()
 ---
 title: FocusESP
 github: https://github.com/sakshamforclaude-source/Foucs-Esp
@@ -151,8 +152,18 @@ Since Reels and Shorts detection still doesn't work, the signal can currently on
 I also wanted to add AI integration to the goals tab of the application (this wasn't in my original feature list), but I decided it was too difficult and not worth adding before the essentials work, so I put it off for now.
 
 **Total time spent: 2h
+## October 26, 2026:
 
+ I did research on rapid hole, and it didn't result in anything fruitful. I guess it was just a procrastination method for actually starting my exams, but I made this project online on a program of Hack Club called Fabricate. 
+ **Total time spent: 1h**
 
 ## November 4, 2026:
 
 I'm TIRED OF IMPROVING THE APP SO I DID SOME HARDWARE REASERCH TODAY (note:i had my exams so i took a REALLLLLY LONG BREAK) I found out: what do I need to make a wearable watch wristband thingy to shock me whenever I watch reels? First of all, I have to make the app work. (We will see that later) secondly, I need to buy an ESP32-C3 mini because they are really small and really great for a wristband. After studying a little bit of electronics, I found out what kind of shocking device I could make that could be safe (ig) 
+oh gawd im so scared I READ SOME REDDIT POSTS THERE IS NO WAY IM DESIGNIING SOMETHING THAT SHOCKS ME NO WAYYY I DONT WANNA DIE 
+I learned things about Git and GitHub, and I sent the Android focus ESP to GitHub. I also sent the journal.md file to GitHub. 
+so um change of plan igggg
+ spent some time thinking and researching about this, and I have another idea now. We are going to make the same device with the same ESP32 outputs, but the only thing that is going to be changed is this: instead of making the device that shocks me, I'm going to be inspired by a rubber band. See, when you stretch a rubber band and let it go, it hurts. (REVOLUTIONAYY i know) we are going to be making a device like that, so what I'm going to do is I'm going to be using a push solenoid a very small version, by the way, because I don't want a wrist device to be tall. I want it to be sleek and cool, right? That's the plan I have, to be honest. I've been thinking a lot about how I'm going to make that, and a magnet seems to be cool, but I don't know how I'm going to fit a solenoid in such a small space. I tried sketching a lot of things, but YEAH NO LUCK IG 
+ I just thought about "things" for some time, and I made a model in FreeCAD. Let me tell you how it works. ![[Pasted image 20261107145318.png]]
+ This is a screenshot of the model in Paint. The blue part is a rigid part that is fixed. You exert a force F upward on the elastic material, and then you release the force. When you exert a force from A to B, some mechanical or elastic energy is stored in the body, and then you release it, and the force goes to the hand. I'm so smart
+  **Total time spent: 2h**
