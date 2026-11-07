@@ -1,4 +1,4 @@
-[Uploading JOURNAL.md.md…]()
+[JOURNAL.md.md](https://github.com/user-attachments/files/34515253/JOURNAL.md.md)
 ---
 title: FocusESP
 github: https://github.com/sakshamforclaude-source/Foucs-Esp
@@ -164,6 +164,20 @@ oh gawd im so scared I READ SOME REDDIT POSTS THERE IS NO WAY IM DESIGNIING SOME
 I learned things about Git and GitHub, and I sent the Android focus ESP to GitHub. I also sent the journal.md file to GitHub. 
 so um change of plan igggg
  spent some time thinking and researching about this, and I have another idea now. We are going to make the same device with the same ESP32 outputs, but the only thing that is going to be changed is this: instead of making the device that shocks me, I'm going to be inspired by a rubber band. See, when you stretch a rubber band and let it go, it hurts. (REVOLUTIONAYY i know) we are going to be making a device like that, so what I'm going to do is I'm going to be using a push solenoid a very small version, by the way, because I don't want a wrist device to be tall. I want it to be sleek and cool, right? That's the plan I have, to be honest. I've been thinking a lot about how I'm going to make that, and a magnet seems to be cool, but I don't know how I'm going to fit a solenoid in such a small space. I tried sketching a lot of things, but YEAH NO LUCK IG 
- I just thought about "things" for some time, and I made a model in FreeCAD. Let me tell you how it works. ![[Pasted image 20261107145318.png]]
- This is a screenshot of the model in Paint. The blue part is a rigid part that is fixed. You exert a force F upward on the elastic material, and then you release the force. When you exert a force from A to B, some mechanical or elastic energy is stored in the body, and then you release it, and the force goes to the hand. I'm so smart
-  **Total time spent: 2h**
+ I just thought about "things" for some time, and I made a model in FreeCAD. Let me tell you how it works. 
+ This is a screenshot of the model in Paint. The blue part is a rigid part that is fixed. You exert a force F upward on the elastic material, and then you release the force. When you exert a force from A to B, some mechanical or elastic energy is stored in the body, and then you release it, and the force goes to the hand. I'm so smart I tried using a pen, you know like the back of the pen I fixed it to the table with the help of a tape, and then I pulled the pen up and then I released it. So much impulse was generated.![[Screenshot 2026-11-07 145032.png]]
+ and letssss gooooooooooooo
+Now the only that is left is to - Determine if 3D-printed plastic material is elastic enough for the prototype to work.
+- Write the code for the ESP32.
+- Fix focus ESP and make it better to detect if it works for YouTube Shorts and Instagram Reels.
+ - model the wrist band completely inside of free cad 
+and it will be done YAYAYAYYAYAYAYYAYAYAAYAYAY time to make focus esp better
+**Total time spent: 2h** 
+## November 7, 2026:
+ now, um I kind of procrastinated for the last few days on making focus ESP better because vibe coding isn't exactly appealing. But see, I have a plan. What I'm going to do is:
+
+1. I'm going to go on GitHub and search up short blockers.
+2. I'm going to test a few of the short blockers and the blocker that works 
+3. I'm going to clone the git inside of my focus ESP and find out how it makes and how it blocks shorts.
+4. I'm going to copy the feature and put it into focus ESP
+I kinda feel like mark zukerberg rn
