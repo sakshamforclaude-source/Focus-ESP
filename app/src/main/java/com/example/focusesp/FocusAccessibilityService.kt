@@ -25,6 +25,9 @@ class FocusAccessibilityService : AccessibilityService() {
     private var contentRecheckAttempts = 0
 
     private val gate = ActionGate()
+    private val youTubeShortsDetector = YouTubeShortsDetector()
+    private val instagramReelsDetector = InstagramReelsDetector()
+    private var shortsOverlay: ShortsBlockingOverlay? = null
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -149,11 +152,24 @@ class FocusAccessibilityService : AccessibilityService() {
         }
 
         val now = SystemClock.elapsedRealtime()
-        if (!force && now - lastContentCheck < CONTENT_CHECK_INTERVAL_MS) return
-        lastContentCheck = now
+        val intervalElapsed = force || now - lastContentCheck >= CONTENT_CHECK_INTERVAL_MS
+        if (intervalElapsed) lastContentCheck = now
+
+        // The proven Shorts/Reels detectors are cheap (bounded BFS, no snapshot
+        // build) and must see the restricted surface as soon as it appears. Run
+        // them even between full-pipeline ticks so the content-check throttle
+        // cannot hide a newly opened Short or confirmed Reel. The full
+        // snapshot/rules pipeline stays throttled.
+        val app = RuleRepository.appFor(pkg)
+        val shortsCandidate = app == "youtube" &&
+            ContentRestrictionStore.blockYoutubeShorts.value
+        val reelsCandidate = app == "instagram" &&
+            ContentRestrictionStore.blockInstagramReels.value
+        if (!intervalElapsed && !shortsCandidate && !reelsCandidate) return
 
         val root = rootInActiveWindow
         if (root == null) {
+            if (!intervalElapsed) return
             ContentRestrictionStore.setDiagnostic(
                 "No active window content. Enable 'Retrieve window content' for FocusESP or try again after the screen loads."
             )
@@ -170,6 +186,30 @@ class FocusAccessibilityService : AccessibilityService() {
             return
         }
 
+        // Run the proven Shorts-Blocker detector against the live accessibility
+        // root before converting it to the (bounded) snapshot model. This uses
+        // the `reel_progress_bar` view ID and is authoritative when it fires.
+        val youtubeShortsDetected =
+            shortsCandidate && youTubeShortsDetector.isShortFormContent(root)
+
+        // Instagram is inspected on the live AccessibilityNodeInfo root, before
+        // the bounded ScreenSnapshot is built. The live result is authoritative
+        // for positive Reels signals, so a separately truncated snapshot can no
+        // longer erase evidence the live traversal already found. Ambiguous
+        // results are passed through for diagnostics but never act.
+        val instagramReels = if (reelsCandidate) {
+            instagramReelsDetector.detect(root, windowClassName)
+        } else {
+            null
+        }
+        val instagramReelsConfirmed =
+            instagramReels?.outcome == ReelsEvidenceOutcome.CONFIRMED
+
+        if (!intervalElapsed && !youtubeShortsDetected && !instagramReelsConfirmed) {
+            recycleQuietly(root)
+            return
+        }
+
         val snapshot = ContentRestrictions.capture(root, pkg, windowClassName)
         recycleQuietly(root)
         DetectionPipeline.onCapture(snapshot)
@@ -179,12 +219,14 @@ class FocusAccessibilityService : AccessibilityService() {
         lastSnapshotHash = hash
         lastHashPackage = pkg
 
-        if (unchanged && !force) {
+        if (unchanged && !force && !youtubeShortsDetected && !instagramReelsConfirmed) {
             // Content-changed burst with identical structure: nothing new to do.
             return
         }
 
-        val decision = ContentRestrictions.evaluate(snapshot)
+        val decision = ContentRestrictions.evaluate(
+            snapshot, youtubeShortsDetected, instagramReels
+        )
         DetectionPipeline.onDecision(decision)
         ContentRestrictionStore.setDiagnostic(ContentRestrictions.diagnose(snapshot, decision))
         reportDiagnostic(pkg, decision)
@@ -211,30 +253,116 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private fun handleBlock(pkg: String, decision: BlockDecision, hash: Int) {
         val ruleId = decision.ruleId ?: "unknown"
+        val blockingRoute = BlockRouting.usesBlockingOverlay(ruleId)
+
+        // The overlay stays until the user dismisses it. While it is visible do
+        // not issue more BACK presses or re-show it for continuing events.
+        if (blockingRoute && shortsOverlay?.isShowing == true) {
+            DetectionPipeline.onEnforcement(
+                EnforcementOutcome.SUPPRESSED_BY_GATE,
+                "blocking overlay already visible"
+            )
+            return
+        }
+
         val attempt = gate.tryAct(pkg, ruleId, hash)
         if (attempt == 0) {
             DetectionPipeline.onEnforcement(EnforcementOutcome.SUPPRESSED_BY_GATE, "gate suppressed $ruleId")
             return
         }
 
-        val ok = performGlobalAction(GLOBAL_ACTION_HOME)
-        if (!ok) {
-            DetectionPipeline.onFailure("GLOBAL_ACTION_HOME failed for $pkg ($ruleId)")
-            DetectionPipeline.onEnforcement(EnforcementOutcome.BLOCK_ACTION_FAILED, "$pkg $ruleId")
-            return
+        val navigation = BlockRouting.navigationFor(ruleId)
+        val globalAction = when (navigation) {
+            BlockRouting.Navigation.HOME -> GLOBAL_ACTION_HOME
+            BlockRouting.Navigation.BACK -> GLOBAL_ACTION_BACK
+        }
+        val navigationOk = performGlobalAction(globalAction)
+
+        if (!navigationOk) {
+            DetectionPipeline.onFailure("${navigation.name} failed for $pkg ($ruleId)")
         }
 
-        DetectionPipeline.onEnforcement(
-            EnforcementOutcome.BLOCK_REQUESTED,
-            "$pkg $ruleId attempt=$attempt"
-        )
+        if (blockingRoute) {
+            val overlayShown = showBlockingOverlay(overlayEyebrow(ruleId))
+
+            if (overlayShown) {
+                DetectionPipeline.onEnforcement(
+                    EnforcementOutcome.BLOCK_REQUESTED,
+                    "$pkg $ruleId back=$navigationOk overlay=true attempt=$attempt"
+                )
+            } else {
+                // Safe fallback: never use HOME for short-form surfaces (it can
+                // trigger picture-in-picture). If BACK already worked we are on
+                // a normal screen; if it failed, retry BACK once. Either way,
+                // keep the failure logged.
+                val retryOk = if (!navigationOk) {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                } else {
+                    false
+                }
+                DetectionPipeline.onFailure(
+                    "Blocking overlay failed for $pkg; back=$navigationOk retry=$retryOk"
+                )
+                DetectionPipeline.onEnforcement(
+                    EnforcementOutcome.BLOCK_ACTION_FAILED,
+                    "$pkg $ruleId back=$navigationOk overlay=false backRetry=$retryOk"
+                )
+                return
+            }
+        } else {
+            if (!navigationOk) {
+                DetectionPipeline.onEnforcement(
+                    EnforcementOutcome.BLOCK_ACTION_FAILED,
+                    "$pkg $ruleId"
+                )
+                return
+            }
+            DetectionPipeline.onEnforcement(
+                EnforcementOutcome.BLOCK_REQUESTED,
+                "$pkg $ruleId attempt=$attempt"
+            )
+        }
+
         val label = "$pkg ($ruleId)"
         FocusState.onBlocked(label)
         ViolationCenter.report(decision.reason)
 
-        // Verify once: if the same blocked screen is still visible shortly
-        // after the first action, the gate permits a single bounded retry.
-        scheduleVerify(pkg, hash)
+        // Verify once for the existing HOME-based blocks. Short-form blocks are
+        // handled by the overlay and must not be verified against a snapshot.
+        if (!blockingRoute) {
+            scheduleVerify(pkg, hash)
+        }
+    }
+
+    private fun overlayEyebrow(ruleId: String): String =
+        if (ruleId == BlockRouting.INSTAGRAM_REELS_RULE_ID) {
+            "INSTAGRAM REELS BLOCKED"
+        } else {
+            "YOUTUBE SHORTS BLOCKED"
+        }
+
+    private fun showBlockingOverlay(eyebrow: String): Boolean {
+        val overlay = shortsOverlay ?: ShortsBlockingOverlay(
+            context = this,
+            messageProvider = { ContentRestrictionStore.effectiveShortsBlockMessage() },
+            onDismiss = { onBlockingOverlayDismissed() }
+        ).also { shortsOverlay = it }
+        return overlay.show(eyebrow)
+    }
+
+    private fun onBlockingOverlayDismissed() {
+        // The user deliberately closed the blocking screen: start a fresh
+        // enforcement visit so newly opened content can be blocked again.
+        gate.reset()
+        cancelPendingRecheck()
+        lastSnapshotHash = 0
+        lastHashPackage = null
+        contentRecheckAttempts = 0
+        DetectionPipeline.onEnforcement(
+            EnforcementOutcome.NOT_APPLICABLE,
+            "blocking overlay dismissed by user"
+        )
+        FocusState.addEvent("Blocking overlay dismissed")
     }
 
     private fun scheduleVerify(pkg: String, blockedHash: Int) {
@@ -323,11 +451,14 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
+        shortsOverlay?.hide()
         FocusState.onServiceInterrupt()
         DetectionPipeline.onFailure("service interrupted")
     }
 
     override fun onDestroy() {
+        shortsOverlay?.hide()
+        shortsOverlay = null
         handler.removeCallbacks(tickRunnable)
         cancelPendingRecheck()
         gate.reset()

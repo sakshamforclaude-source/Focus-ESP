@@ -6,8 +6,10 @@ import android.view.accessibility.AccessibilityNodeInfo
  * Converts an Android accessibility tree into the pure [ScreenSnapshot] model.
  *
  * Traversal is bounded by [MAX_NODES] and [MAX_DEPTH]; when either limit is
- * hit the snapshot is marked `truncated`, which makes the evaluator prefer
- * UNKNOWN over a confident decision. Nodes are not recycled: on modern Android
+ * hit the snapshot is marked `truncated`. Incomplete snapshots are treated
+ * cautiously, but a separately confirmed live Instagram Reels result is not
+ * discarded just because the snapshot tree was truncated. Nodes are not
+ * recycled: on modern Android
  * framework nodes obtained from [AccessibilityNodeInfo.getChild] are managed by
  * the framework and recycled nodes are only valid until the next event. The
  * previous implementation did not recycle either, so behavior is unchanged.
@@ -58,7 +60,8 @@ object NodeAdapter {
                 text = node.text?.toString(),
                 contentDescription = node.contentDescription?.toString(),
                 className = node.className?.toString(),
-                children = children
+                children = children,
+                isSelected = node.isSelected
             )
         }
 
@@ -74,9 +77,9 @@ object NodeAdapter {
     }
 
     /**
-     * Cheap structural fingerprint. Changes to ids/text/description/children
-     * produce a different hash so unchanged content-changed events can be
-     * skipped. Deliberately collision-tolerant: a collision only costs one
+     * Cheap structural fingerprint. Changes to ids/text/description/selection/
+     * children produce a different hash so unchanged content-changed events can
+     * be skipped. Deliberately collision-tolerant: a collision only costs one
      * skipped evaluation, which never blocks content.
      */
     fun structuralHash(snapshot: ScreenSnapshot): Int {
@@ -94,6 +97,7 @@ object NodeAdapter {
             mix(n.text)
             mix(n.contentDescription)
             mix(n.className)
+            mix(n.isSelected)
             n.children.forEach { stack.add(it) }
         }
         return h

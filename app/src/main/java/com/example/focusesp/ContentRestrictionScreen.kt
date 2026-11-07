@@ -37,6 +37,7 @@ import com.example.focusesp.ui.theme.IconClose
 import com.example.focusesp.ui.theme.InfoBanner
 import com.example.focusesp.ui.theme.LogPanel
 import com.example.focusesp.ui.theme.PrimaryButton
+import com.example.focusesp.ui.theme.SecondaryButton
 import com.example.focusesp.ui.theme.SectionHeader
 import com.example.focusesp.ui.theme.SettingToggleRow
 import com.example.focusesp.ui.theme.StatusPill
@@ -89,6 +90,9 @@ private fun pipelineSummary(): List<String> = DetectionPipeline.summaryLines()
 fun ContentSection(serviceEnabled: Boolean) {
     var keywordInput by remember { mutableStateOf("") }
     var channelInput by remember { mutableStateOf("") }
+    var messageDraft by remember(ContentRestrictionStore.shortsBlockMessage.value) {
+        mutableStateOf(ContentRestrictionStore.effectiveShortsBlockMessage())
+    }
 
     // One-second display tick. Eligibility is always recomputed from persisted
     // timestamps; this tick only refreshes the countdown and the switch state.
@@ -217,6 +221,68 @@ fun ContentSection(serviceEnabled: Boolean) {
 
         ContentRestrictionStore.lastControlNotice.value?.let { notice ->
             InfoBanner(text = notice, tone = BannerTone.WARNING, title = "Locked")
+        }
+
+        // ---- Customizable short-form blocking message ---------------------
+        SectionHeader("Blocking Message", modifier = Modifier.padding(start = 4.dp))
+        GlassCard {
+            Text(
+                text = "This message appears whenever FocusESP blocks YouTube Shorts or Instagram Reels.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = messageDraft,
+                onValueChange = {
+                    messageDraft = it.take(ContentRestrictionStore.MAX_SHORTS_BLOCK_MESSAGE_LENGTH)
+                },
+                label = { Text("Message") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5,
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "${messageDraft.length} / " +
+                    ContentRestrictionStore.MAX_SHORTS_BLOCK_MESSAGE_LENGTH,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Preview",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = messageDraft.trim().ifBlank {
+                    ContentRestrictionStore.DEFAULT_SHORTS_BLOCK_MESSAGE
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton(
+                    text = "Save message",
+                    onClick = {
+                        ContentRestrictionStore.setShortsBlockMessage(messageDraft)
+                        messageDraft = ContentRestrictionStore.effectiveShortsBlockMessage()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                SecondaryButton(
+                    text = "Reset",
+                    onClick = {
+                        ContentRestrictionStore.resetShortsBlockMessage()
+                        messageDraft = ContentRestrictionStore.effectiveShortsBlockMessage()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         // ---- Diagnostics -------------------------------------------------

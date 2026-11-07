@@ -23,8 +23,13 @@ import androidx.compose.runtime.mutableStateOf
  */
 object ContentRestrictionStore {
 
+    const val DEFAULT_SHORTS_BLOCK_MESSAGE =
+        "That Short can wait. Get back to what you planned to do."
+    const val MAX_SHORTS_BLOCK_MESSAGE_LENGTH = 200
+
     private const val KEY_SHORTS = "restrict_shorts"
     private const val KEY_REELS = "restrict_reels"
+    private const val KEY_SHORTS_BLOCK_MESSAGE = "restrict_shorts_block_message"
     private const val KEY_BROWSER_KEYWORDS = "restrict_browser_keywords"
     private const val KEY_ALLOWED_CHANNELS = "restrict_allowed_channels"
     private const val KEY_DIAGNOSTICS = "restrict_diagnostics"
@@ -38,6 +43,9 @@ object ContentRestrictionStore {
 
     val blockYoutubeShorts = mutableStateOf(false)
     val blockInstagramReels = mutableStateOf(false)
+
+    /** Customizable message shown on the full-screen short-form blocking overlay. */
+    val shortsBlockMessage = mutableStateOf(DEFAULT_SHORTS_BLOCK_MESSAGE)
 
     /**
      * Whole-app fallback: when enabled for an app, that entire native app
@@ -72,6 +80,9 @@ object ContentRestrictionStore {
         this.store = store
         blockYoutubeShorts.value = store.getBoolean(KEY_SHORTS, false)
         blockInstagramReels.value = store.getBoolean(KEY_REELS, false)
+        shortsBlockMessage.value = normalizeShortsBlockMessage(
+            store.getString(KEY_SHORTS_BLOCK_MESSAGE, DEFAULT_SHORTS_BLOCK_MESSAGE)
+        )
         // Migrate the legacy umbrella flag into both per-app selections when the
         // user has not yet set them explicitly.
         val legacy = store.getBoolean(KEY_WHOLE_APP_FALLBACK, false)
@@ -118,6 +129,27 @@ object ContentRestrictionStore {
         store?.putBoolean(KEY_BLOCK_INSTAGRAM_APP, value)
         return true
     }
+
+    // ---- YouTube Shorts blocking message ----------------------------------
+
+    /**
+     * Persists the Shorts overlay message. A blank value falls back to
+     * [DEFAULT_SHORTS_BLOCK_MESSAGE] and values are capped at
+     * [MAX_SHORTS_BLOCK_MESSAGE_LENGTH] characters. Editing the message does not
+     * weaken any protection, so it is not gated by the unlock commitment.
+     */
+    fun setShortsBlockMessage(value: String): Boolean {
+        val normalized = normalizeShortsBlockMessage(value)
+        shortsBlockMessage.value = normalized
+        store?.putString(KEY_SHORTS_BLOCK_MESSAGE, normalized)
+        return true
+    }
+
+    fun resetShortsBlockMessage(): Boolean =
+        setShortsBlockMessage(DEFAULT_SHORTS_BLOCK_MESSAGE)
+
+    fun effectiveShortsBlockMessage(): String =
+        normalizeShortsBlockMessage(shortsBlockMessage.value)
 
     // ---- Browser keywords / allowed channels ------------------------------
     // Adding a browser keyword or removing an allowed channel strengthens the
@@ -179,6 +211,11 @@ object ContentRestrictionStore {
                 "Request an unlock appointment and confirm it within the 1-minute window."
         return false
     }
+
+    private fun normalizeShortsBlockMessage(value: String): String =
+        value.trim()
+            .take(MAX_SHORTS_BLOCK_MESSAGE_LENGTH)
+            .ifBlank { DEFAULT_SHORTS_BLOCK_MESSAGE }
 
     private fun encodeList(values: List<String>): String =
         runCatching { org.json.JSONArray(values).toString() }.getOrDefault("[]")

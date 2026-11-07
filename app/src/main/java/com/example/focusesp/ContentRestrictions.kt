@@ -27,8 +27,13 @@ object ContentRestrictions {
         windowClassName: String?
     ): ScreenSnapshot = NodeAdapter.capture(root, packageName, windowClassName)
 
-    fun evaluate(snapshot: ScreenSnapshot): BlockDecision =
-        RuleEvaluator.evaluate(snapshot, currentConfig())
+    fun evaluate(
+        snapshot: ScreenSnapshot,
+        youtubeShortsDetected: Boolean = false,
+        instagramReels: InstagramReelsResult? = null
+    ): BlockDecision = RuleEvaluator.evaluate(
+        snapshot, currentConfig(), youtubeShortsDetected, instagramReels
+    )
 
     /** Human-readable explanation surfaced in the UI (developer diagnostics). */
     fun diagnose(snapshot: ScreenSnapshot, decision: BlockDecision): String {

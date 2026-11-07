@@ -48,8 +48,14 @@ class AlwaysOnRestrictionTest {
     private fun instagramReelsSnapshot() = ScreenSnapshot(
         packageName = instagram,
         windowClassName = "com.instagram.android.activity.ReelViewerActivity",
-        roots = listOf(DetectedNode(viewId = "com.instagram.android:id/clips_viewer")),
-        nodeCount = 1,
+        roots = listOf(
+            DetectedNode(
+                viewId = "com.instagram.android:id/clips_tab",
+                isSelected = true
+            ),
+            DetectedNode(viewId = "com.instagram.android:id/clips_viewer")
+        ),
+        nodeCount = 2,
         truncated = false,
         capturedAtMs = 0L
     )
@@ -77,7 +83,12 @@ class AlwaysOnRestrictionTest {
         FocusPrefs.setFocusActive(false)
         assertTrue(ContentRestrictionStore.setBlockInstagramReels(true))
 
-        val decision = RuleEvaluator.evaluate(instagramReelsSnapshot(), ContentRestrictions.currentConfig())
+        val snapshot = instagramReelsSnapshot()
+        val decision = RuleEvaluator.evaluate(
+            snapshot,
+            ContentRestrictions.currentConfig(),
+            instagramReels = InstagramReelsDetector().detect(snapshot)
+        )
 
         assertEquals(Decision.BLOCK, decision.decision)
         assertFalse(FocusPrefs.focusActive.value)

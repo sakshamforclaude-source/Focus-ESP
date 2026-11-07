@@ -6,18 +6,23 @@ package com.example.focusesp
  * Grounding policy:
  * - STRONG signals are window/activity class names and very specific player
  *   accessibility labels ("Reel player"). These alone can justify a block.
- * - WEAK signals are tab labels ("Shorts", "Reels") and opportunistic view-ID
- *   substrings. Tab labels are visible on ordinary screens, so they never
- *   block on their own; they only add confidence on top of contextual
+ * - WEAK signals are tab labels (for example "Shorts") and opportunistic
+ *   view-ID substrings. Tab labels are visible on ordinary screens, so they
+ *   never block on their own; they only add confidence on top of contextual
  *   evidence. View-ID patterns are opportunistic heuristics (app layouts
  *   change between versions) and are deliberately weighted below threshold.
- * - Explicit ALLOW rules (watch player, search, home feed, DMs) beat weak and
+ * - Explicit ALLOW rules (watch player, search, home feed) beat weak and
  *   mid-strength block evidence, but never a STRONG block from a dedicated
  *   player activity.
+ *
+ * Instagram is intentionally not represented here. It is handled exclusively by
+ * [InstagramReelsDetector] + a dedicated [RuleEvaluator] branch, because broad
+ * activity-name and generic `clips_viewer` heuristics could block normal video
+ * posts, Stories or DMs.
  */
 object RuleRepository {
 
-    const val VERSION = 2
+    const val VERSION = 3
 
     enum class Kind { BLOCK, ALLOW }
 
@@ -98,48 +103,6 @@ object RuleRepository {
             weight = 0.7f,
             description = "Home/Subscriptions/Library activity",
             windowClassPattern = rx("(?i).*(home|subscription|library).*activity.*")
-        ),
-
-        // ---- Instagram -----------------------------------------------------
-        DetectionRule(
-            id = "ig_strong_activity",
-            app = "instagram",
-            kind = Kind.BLOCK,
-            weight = 0.9f,
-            description = "Dedicated Reels viewer activity in window class",
-            windowClassPattern = rx("(?i).*(reel|clips).*activity.*")
-        ),
-        DetectionRule(
-            id = "ig_weak_id_reels_viewer",
-            app = "instagram",
-            kind = Kind.BLOCK,
-            weight = 0.35f,
-            description = "Opportunistic Reels viewer view-ID fragments (unverified across app versions)",
-            viewIdPatterns = listOf(rx("(?i).*(reel_viewer|clips_viewer|reels_fragment).*"))
-        ),
-        DetectionRule(
-            id = "ig_weak_tab_label",
-            app = "instagram",
-            kind = Kind.BLOCK,
-            weight = 0.2f,
-            description = "'Reels' label (also a nav tab; supporting evidence only)",
-            textPatterns = listOf(rx("(?i)^reels?$"))
-        ),
-        DetectionRule(
-            id = "ig_allow_direct",
-            app = "instagram",
-            kind = Kind.ALLOW,
-            weight = 0.8f,
-            description = "Direct messages / inbox activity",
-            windowClassPattern = rx("(?i).*(direct|inbox|message).*")
-        ),
-        DetectionRule(
-            id = "ig_allow_main",
-            app = "instagram",
-            kind = Kind.ALLOW,
-            weight = 0.7f,
-            description = "Main feed / profile / tabbed activity",
-            windowClassPattern = rx("(?i).*(mainactivity|hometab|feed|profile|tabbed).*")
         )
     )
 

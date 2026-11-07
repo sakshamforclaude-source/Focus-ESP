@@ -115,6 +115,67 @@ class DetectionEngineTest {
     }
 
     @Test
+    fun youtubeReelProgressBarDetectionBlocksEvenOnWatchActivity() {
+        val s = snapshot(
+            youtube,
+            windowClass = "com.google.android.youtube/.WatchActivity",
+            roots = listOf(node(id = "com.google.android.youtube:id/reel_progress_bar"))
+        )
+        val d = RuleEvaluator.evaluate(s, config(), youtubeShortsDetected = true)
+        assertEquals(Decision.BLOCK, d.decision)
+        assertEquals("yt_reel_progress_bar", d.ruleId)
+    }
+
+    @Test
+    fun youtubeReelProgressBarSignalIgnoredWhenToggleOff() {
+        val s = snapshot(
+            youtube,
+            roots = listOf(node(id = "com.google.android.youtube:id/reel_progress_bar"))
+        )
+        val d = RuleEvaluator.evaluate(s, config(shorts = false), youtubeShortsDetected = true)
+        assertEquals(Decision.ALLOW, d.decision)
+        assertEquals("cfg_off", d.ruleId)
+    }
+
+    @Test
+    fun youtubeAllowedChannelStillSkipsReelProgressBarBlock() {
+        val s = snapshot(
+            youtube,
+            roots = listOf(
+                node(id = "com.google.android.youtube:id/reel_progress_bar"),
+                node(text = "MrBeast")
+            )
+        )
+        val d = RuleEvaluator.evaluate(
+            s,
+            config(channels = listOf("MrBeast")),
+            youtubeShortsDetected = true
+        )
+        assertEquals(Decision.ALLOW, d.decision)
+        assertEquals("yt_allowed_channel", d.ruleId)
+    }
+
+    @Test
+    fun youtubeReelProgressBarMatcherIsCaseInsensitiveAndSpecific() {
+        assertTrue(
+            YouTubeShortsDetector.matchesViewId(
+                "com.google.android.youtube:id/reel_progress_bar"
+            )
+        )
+        assertTrue(
+            YouTubeShortsDetector.matchesViewId(
+                "com.google.android.youtube:id/REEL_PROGRESS_BAR"
+            )
+        )
+        assertTrue(
+            !YouTubeShortsDetector.matchesViewId(
+                "com.google.android.youtube:id/video_progress_bar"
+            )
+        )
+        assertTrue(!YouTubeShortsDetector.matchesViewId(null))
+    }
+
+    @Test
     fun youtubeToggleOffAllows() {
         val s = snapshot(
             youtube,
@@ -140,15 +201,15 @@ class DetectionEngineTest {
     // ---- Instagram --------------------------------------------------------
 
     @Test
-    fun instagramReelsViewerActivityBlocks() {
+    fun instagramGenericViewerActivityAloneDoesNotBlock() {
+        // Broad activity names and generic clips_viewer must never block alone.
         val s = snapshot(
             instagram,
             windowClass = "com.instagram.android.activity.ReelViewerActivity",
             roots = listOf(node(id = "com.instagram.android:id/clips_viewer"))
         )
         val d = RuleEvaluator.evaluate(s, config())
-        assertEquals(Decision.BLOCK, d.decision)
-        assertEquals("ig_strong_activity", d.ruleId)
+        assertEquals(Decision.ALLOW, d.decision)
     }
 
     @Test
@@ -178,8 +239,8 @@ class DetectionEngineTest {
     }
 
     @Test
-    fun instagramReelsIdAndLabelBelowThresholdAllows() {
-        // Weak id fragment + nav label on a complete tree: not enough to block.
+    fun instagramGenericViewerIdAndLabelAllows() {
+        // Generic clips_viewer plus a nav label is still not confirmed Reels.
         val s = snapshot(
             instagram,
             windowClass = null,
@@ -190,7 +251,7 @@ class DetectionEngineTest {
         )
         val d = RuleEvaluator.evaluate(s, config())
         assertEquals(Decision.ALLOW, d.decision)
-        assertTrue(d.confidence in 0.5f..0.6f)
+        assertTrue(d.reason.contains("No confirmed"))
     }
 
     @Test
@@ -416,7 +477,6 @@ class DetectionEngineTest {
         )
         val d = RuleEvaluator.evaluate(s, config())
         assertEquals(Decision.ALLOW, d.decision)
-        assertTrue(d.confidence >= RuleEvaluator.ALLOW_THRESHOLD)
     }
 
     @Test
@@ -431,16 +491,23 @@ class DetectionEngineTest {
     }
 
     @Test
-    fun strongBlockBeatsGenericAllowForInstagram() {
-        // A dedicated Reels viewer activity with an id fragment: block regardless.
+    fun confirmedInstagramReelsBlocksWithDedicatedRule() {
+        // Selected clips_tab + clips_viewer is the only confirmed combination.
         val s = snapshot(
             instagram,
             windowClass = "com.instagram.android.clips.ClipsViewerActivity",
-            roots = listOf(node(id = "com.instagram.android:id/clips_viewer"))
+            roots = listOf(
+                DetectedNode(
+                    viewId = "com.instagram.android:id/clips_tab",
+                    isSelected = true
+                ),
+                node(id = "com.instagram.android:id/clips_viewer")
+            )
         )
-        val d = RuleEvaluator.evaluate(s, config())
+        val reels = InstagramReelsDetector().detect(s)
+        val d = RuleEvaluator.evaluate(s, config(), instagramReels = reels)
         assertEquals(Decision.BLOCK, d.decision)
-        assertEquals("ig_strong_activity", d.ruleId)
+        assertEquals(BlockRouting.INSTAGRAM_REELS_RULE_ID, d.ruleId)
     }
 
     @Test
